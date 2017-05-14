@@ -37,6 +37,7 @@ envList.add('TEST_SUITE=javascript CS=true APP=application/commerce-crm-ee')
 // envList.add('PHP=7.1 APP=application/commerce-crm-ee     TEST_SUITE=functional DB=mysql ORO_INSTALLED=commerce_1.1.0')
 envList.add('PHP=7.1 APP=application/commerce-crm-ee     TEST_SUITE=functional DB=pgsql ORO_INSTALLED=crm-enterprise_1.12 UPGRADE=true')
 
+
 /* Only keep the 10 most recent builds. */
 def projectProperties = [
     [$class: 'BuildDiscarderProperty',strategy: [$class: 'LogRotator', numToKeepStr: '10']],
