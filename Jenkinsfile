@@ -51,7 +51,7 @@ def projectProperties = [
 
 properties(projectProperties)
 
-properties([overrideIndexTriggers(true), pipelineTriggers([])])
+// properties([overrideIndexTriggers(true), pipelineTriggers([])])
 
 echo "BRANCH_NAME = ${env.BRANCH_NAME}"
 if (env.BRANCH_NAME.startsWith('PR-')) {
