@@ -49,6 +49,8 @@ if (!env.CHANGE_ID) {
     }
 }
 
+projectProperties.add(overrideIndexTriggers(true))
+
 properties(projectProperties)
 
 echo "BRANCH_NAME = ${env.BRANCH_NAME}"
