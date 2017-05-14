@@ -49,9 +49,9 @@ if (!env.CHANGE_ID) {
     }
 }
 
-// projectProperties.add(overrideIndexTriggers(true))
-
 properties(projectProperties)
+
+properties([overrideIndexTriggers(true), pipelineTriggers([])])
 
 echo "BRANCH_NAME = ${env.BRANCH_NAME}"
 if (env.BRANCH_NAME.startsWith('PR-')) {
