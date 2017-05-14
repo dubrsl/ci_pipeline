@@ -8,7 +8,6 @@ def skipList = []
 
 //List of environments used for build and test. All environments will be run in parallel
 
-
 envList.add('PHP=7.1 APP=application/commerce-crm-ee TEST_SUITE=behat DB=pgsql')
 envList.add('PHP=7.1 APP=application/commerce-crm-ee TEST_SUITE=behat DB=mysql PARALLEL_PROCESSES=3')
 
@@ -48,7 +47,7 @@ if (!env.CHANGE_ID) {
         projectProperties.add(pipelineTriggers([cron('H/30 * * * *')]))
     }
 }
-projectProperties.add(overrideIndexTriggers(true))
+// projectProperties.add(overrideIndexTriggers(true))
 
 properties(projectProperties)
 
