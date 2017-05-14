@@ -43,15 +43,15 @@ def projectProperties = [
     [$class: 'BuildDiscarderProperty',strategy: [$class: 'LogRotator', numToKeepStr: '10']],
 ]
 
-// if (!env.CHANGE_ID) {
-    // if (env.BRANCH_NAME == null) {
+if (!env.CHANGE_ID) {
+    if (env.BRANCH_NAME == null) {
         projectProperties.add(pipelineTriggers([cron('H/30 * * * *')]))
-    // }
-// }
+    }
+}
+projectProperties.add(overrideIndexTriggers(true))
 
 properties(projectProperties)
 
-// properties([overrideIndexTriggers(true), pipelineTriggers([])])
 
 echo "BRANCH_NAME = ${env.BRANCH_NAME}"
 if (env.BRANCH_NAME.startsWith('PR-')) {
