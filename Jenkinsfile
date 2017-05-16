@@ -47,7 +47,7 @@ if (!env.CHANGE_ID) {
         projectProperties.add(pipelineTriggers([cron('H/30 * * * *')]))
     }
 }
-projectProperties.add(overrideIndexTriggers(true))
+projectProperties.add(overrideIndexTriggers(true), pipelineTriggers([githubPush()])])
 
 properties(projectProperties)
 
