@@ -51,6 +51,7 @@ if (!env.CHANGE_ID) {
 
 // properties(projectProperties)
 
+
 properties([overrideIndexTriggers(true), pipelineTriggers([githubPush()])])
 
 echo "BRANCH_NAME = ${env.BRANCH_NAME}"
