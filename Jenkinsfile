@@ -254,25 +254,26 @@ try {
   error error
 }
 
-
 def checkout_my() {
+  //First clone from google for speed up
+  // dir("${HOME}") {
+  //   unstash 'master-stuff'
+  // }
   try {
-    //First clone it
-    dir("${HOME}") {
-      unstash 'master-stuff'
+    retry(5) {
+      // sh '''
+      //   gcloud auth activate-service-account jenkins@oro-product-development.iam.gserviceaccount.com --key-file="${HOME}/jenkins@oro-product-development.iam.gserviceaccount.com.json" ||:
+      //   [ "$(ls -A .)" ] || time gcloud source repos clone dev . ||:
+      // '''
+      checkout scm
+      // checkout([
+      //  $class: 'GitSCM',
+      //  branches: scm.branches,
+      //  doGenerateSubmoduleConfigurations: scm.doGenerateSubmoduleConfigurations,
+      //  extensions: scm.extensions + [[$class: 'CloneOption', depth: Depth,  noTags: true, reference: '', shallow: Shallow]],
+      //  userRemoteConfigs: scm.userRemoteConfigs
+      //  ])
     }
-    sh '''
-      gcloud auth activate-service-account jenkins@oro-product-development.iam.gserviceaccount.com --key-file="${HOME}/jenkins@oro-product-development.iam.gserviceaccount.com.json" ||:
-      [ "$(ls -A .)" ] || time gcloud source repos clone ci-pipeline . ||:
-    '''
-    checkout scm
-    // checkout([
-    //  $class: 'GitSCM',
-    //  branches: scm.branches,
-    //  doGenerateSubmoduleConfigurations: scm.doGenerateSubmoduleConfigurations,
-    //  extensions: scm.extensions + [[$class: 'CloneOption', depth: depth,  noTags: true, reference: '', shallow: shallow]],
-    //  userRemoteConfigs: scm.userRemoteConfigs
-    //  ])
   } catch (error) {
     error message:"ERROR: Cannot perform git checkout!, Reason: '${error}'"
   }
