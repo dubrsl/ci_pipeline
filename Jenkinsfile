@@ -254,7 +254,6 @@ try {
   error error
 }
 
-
 def checkout_my() {
   //First clone from google for speed up
   // dir("${HOME}") {
