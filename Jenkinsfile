@@ -47,12 +47,9 @@ if (!env.CHANGE_ID) {
         projectProperties.add(pipelineTriggers([cron('H/30 * * * *')]))
     }
 }
-// projectProperties.add(overrideIndexTriggers(true), pipelineTriggers([githubPush()]))
 
-// properties(projectProperties)
+properties(projectProperties)
 
-
-properties([overrideIndexTriggers(true), pipelineTriggers([githubPush()])])
 
 echo "BRANCH_NAME = ${env.BRANCH_NAME}"
 if (env.BRANCH_NAME.startsWith('PR-')) {
