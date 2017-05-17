@@ -72,7 +72,7 @@ try {
           }
         }
         if(fullBuild == 'FULL_BUILD=false'){
-          node('behat') {
+          node('behat-main') {
             //Clean workspace and docker
             // deleteDir()
             sh 'printenv'
@@ -114,7 +114,7 @@ try {
               if (skipList[index] == 'pass') {
                 withEnv(["NETWORK=${index}"] + ["TESTENV=TestEnv_${e}"] + envList[index].tokenize()) {
                   if (env.TEST_SUITE == 'behat') {
-                    node('behat') {
+                    node('behat-main') {
                       try {
                         checkout_my()
                         // checkout scm
@@ -166,7 +166,7 @@ try {
                       int index_b=j, s = j+1
                       enviroments_b["TestEnv_${e} behat=${behatList[index_b]}"] = {
                         withEnv(["BEHAT_SUIT=${behatList[index_b]}"]) {
-                          node('behat') {
+                          node('behat-main') {
                             // sh ''' printf %s "$(printenv)" |tr -s '[:space:]' ' ' '''
                             checkout_my()
                             // deleteDir()
