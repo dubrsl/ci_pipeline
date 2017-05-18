@@ -8,7 +8,6 @@ def skipList = []
 
 //List of environments used for build and test. All environments will be run in parallel
 
-
 envList.add('PHP=7.1 APP=application/commerce-crm-ee TEST_SUITE=behat DB=pgsql')
 envList.add('PHP=7.1 APP=application/commerce-crm-ee TEST_SUITE=behat DB=mysql PARALLEL_PROCESSES=3')
 
@@ -69,7 +68,7 @@ try {
           }
         }
         if(fullBuild == 'FULL_BUILD=false'){
-          node('behat') {
+          node('behat-main') {
             //Clean workspace and docker
             // deleteDir()
             sh 'printenv'
@@ -111,7 +110,7 @@ try {
               if (skipList[index] == 'pass') {
                 withEnv(["NETWORK=${index}"] + ["TESTENV=TestEnv_${e}"] + envList[index].tokenize()) {
                   if (env.TEST_SUITE == 'behat') {
-                    node('behat') {
+                    node('behat-main') {
                       try {
                         checkout_my()
                         // checkout scm
@@ -163,7 +162,7 @@ try {
                       int index_b=j, s = j+1
                       enviroments_b["TestEnv_${e} behat=${behatList[index_b]}"] = {
                         withEnv(["BEHAT_SUIT=${behatList[index_b]}"]) {
-                          node('behat') {
+                          node('behat-main') {
                             // sh ''' printf %s "$(printenv)" |tr -s '[:space:]' ' ' '''
                             checkout_my()
                             // deleteDir()
@@ -253,23 +252,25 @@ try {
 
 
 def checkout_my() {
+  //First clone from google for speed up
+  // dir("${HOME}") {
+  //   unstash 'master-stuff'
+  // }
   try {
-    //First clone it
-    dir("${HOME}") {
-      unstash 'master-stuff'
+    retry(5) {
+      // sh '''
+      //   gcloud auth activate-service-account jenkins@oro-product-development.iam.gserviceaccount.com --key-file="${HOME}/jenkins@oro-product-development.iam.gserviceaccount.com.json" ||:
+      //   [ "$(ls -A .)" ] || time gcloud source repos clone dev . ||:
+      // '''
+      checkout scm
+      // checkout([
+      //  $class: 'GitSCM',
+      //  branches: scm.branches,
+      //  doGenerateSubmoduleConfigurations: scm.doGenerateSubmoduleConfigurations,
+      //  extensions: scm.extensions + [[$class: 'CloneOption', depth: Depth,  noTags: true, reference: '', shallow: Shallow]],
+      //  userRemoteConfigs: scm.userRemoteConfigs
+      //  ])
     }
-    sh '''
-      gcloud auth activate-service-account jenkins@oro-product-development.iam.gserviceaccount.com --key-file="${HOME}/jenkins@oro-product-development.iam.gserviceaccount.com.json" ||:
-      [ "$(ls -A .)" ] || time gcloud source repos clone ci-pipeline . ||:
-    '''
-    checkout scm
-    // checkout([
-    //  $class: 'GitSCM',
-    //  branches: scm.branches,
-    //  doGenerateSubmoduleConfigurations: scm.doGenerateSubmoduleConfigurations,
-    //  extensions: scm.extensions + [[$class: 'CloneOption', depth: depth,  noTags: true, reference: '', shallow: shallow]],
-    //  userRemoteConfigs: scm.userRemoteConfigs
-    //  ])
   } catch (error) {
     error message:"ERROR: Cannot perform git checkout!, Reason: '${error}'"
   }
