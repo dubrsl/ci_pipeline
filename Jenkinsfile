@@ -130,6 +130,7 @@ try {
                                 try {
                                   sh '''
                                   printenv
+                                  exit 1
                                   '''
                                 } catch (error) {
                                   echo "ERROR: ${error}"
