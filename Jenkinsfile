@@ -67,7 +67,7 @@ try {
           }
         }
         if(fullBuild == 'FULL_BUILD=false'){
-          node('behat') {
+          node('master') {
             ws("${HOME}/workspace/dev") {
               // sh 'docker version && docker info && docker-compose version'
               checkout_my()
