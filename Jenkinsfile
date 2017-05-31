@@ -200,7 +200,7 @@ try {
                       throw (error)
                     }
                   } else {
-                    node('docker') {
+                    node('master') {
                       try {
                         checkout_my()
                         timeout(time: 60, unit: 'MINUTES') {
