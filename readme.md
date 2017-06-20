@@ -1,6 +1,1 @@
-add line
-
-
-
-
-check master 2
+The project for test jenkins pipeline
