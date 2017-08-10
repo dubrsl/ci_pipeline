@@ -1,16 +1,11 @@
 #!groovy
 
-//kill all job with current name
-killall_jobs()
-
 def envList = []
 def skipList = []
 
 //List of environments used for build and test. All environments will be run in parallel
-
-
 envList.add('PHP=7.1 APP=application/commerce-crm-ee TEST_SUITE=behat DB=pgsql')
-envList.add('PHP=7.1 APP=application/commerce-crm-ee TEST_SUITE=behat DB=mysql PARALLEL_PROCESSES=3')
+// envList.add('PHP=7.1 APP=application/commerce-crm-ee TEST_SUITE=behat DB=mysql PARALLEL_PROCESSES=3')
 
 envList.add('PHP=7.0 APP=application/commerce-crm-ee TEST_SUITE=unit')
 envList.add('PHP=7.1 APP=application/commerce-crm-ee TEST_SUITE=unit CS=true')
@@ -36,7 +31,7 @@ envList.add('TEST_SUITE=javascript CS=true APP=application/commerce-crm-ee')
 // envList.add('PHP=7.1 APP=application/commerce-enterprise TEST_SUITE=functional DB=pgsql ORO_INSTALLED=commerce_1.1.0       ORO_SEARCH_ENGINE=elastic_search')
 
 // envList.add('PHP=7.1 APP=application/commerce-crm-ee     TEST_SUITE=functional DB=mysql ORO_INSTALLED=commerce_1.1.0')
-envList.add('PHP=7.1 APP=application/commerce-crm-ee     TEST_SUITE=functional DB=pgsql ORO_INSTALLED=crm-enterprise_1.12 UPGRADE=true')
+// envList.add('PHP=7.1 APP=application/commerce-crm-ee     TEST_SUITE=functional DB=pgsql ORO_INSTALLED=crm-enterprise_1.12 UPGRADE=true')
 
 /* Only keep the 10 most recent builds. */
 def projectProperties = [
@@ -51,9 +46,12 @@ if (!env.CHANGE_ID) {
 
 properties(projectProperties)
 
+//Use branch name for detect if necessary run all tests
 echo "BRANCH_NAME = ${env.BRANCH_NAME}"
 if (env.BRANCH_NAME.startsWith('PR-')) {
   fullBuild='FULL_BUILD=false'
+  //kill all job with current name only for PR
+  killall_jobs()
 } else {
   fullBuild='FULL_BUILD=true'
 }
@@ -69,36 +67,42 @@ try {
           }
         }
         if(fullBuild == 'FULL_BUILD=false'){
-          node('behat') {
-            //Clean workspace and docker
-            // deleteDir()
-            sh 'printenv'
-            checkout_my()
-            for (int i = 0; i < envList.size() ; i++) {
-              int index=i
-              withEnv(envList[index].tokenize()) {
-                checkVal = sh returnStatus: true, script: '''
-                  export BUILD_DIR=$(readlink -f ./environment)
-                  export TEST_RUNNER_OPTIONS=""
-                  export APPLICATION=${APP}
-  #                "${BUILD_DIR}/ci/${TEST_SUITE}.sh" check | grep -q "changes were detected" && exit 0 || exit 1
-                  '''
-                echo "checkVal=${checkVal}"
-                if (checkVal == 1) {
-                  echo "Skip test ${envList[index]}"
-                  skipList.add('skip')
-                }else{
-                  echo "Pass test ${envList[index]}"
-                  skipList.add('pass')
-                }
-              } //withEnv
-            } //for
+          node('master') {
+            ws("${HOME}/workspace/dev") {
+              // sh 'docker version && docker info && docker-compose version'
+              checkout_my()
+              for (int i = 0; i < envList.size() ; i++) {
+                int index=i, e = i+1
+                withEnv(envList[index].tokenize()) {
+                  try {
+                    checkVal = sh returnStatus: true, script: '''
+                      exit 0
+                      '''
+                    echo "checkVal=${checkVal}"
+                    if (checkVal == 1) {
+                      echo "Skip test ${envList[index]}"
+                      skipList.add('skip')
+                    }else{
+                      echo "Pass test ${envList[index]}"
+                      skipList.add('pass')
+                    }
+
+                  } catch (error) {
+                    echo "ERROR: ${error}"
+                    throw (error)
+                  } finally {
+                    // archive_all("logs/TestEnv_"+e, env.WORKSPACE)
+                    // post_clean_node()
+                  }
+                } //withEnv
+              } //for
+            } // ws
           } //node
         }else{
           for (int i = 0; i < envList.size() ; i++) {
             skipList.add('pass')
           }
-        }//if
+        } //if fullBuild
       } //stage
 
       withEnv(["PARALLEL_PROCESSES=8", fullBuild]){
@@ -111,50 +115,48 @@ try {
               if (skipList[index] == 'pass') {
                 withEnv(["NETWORK=${index}"] + ["TESTENV=TestEnv_${e}"] + envList[index].tokenize()) {
                   if (env.TEST_SUITE == 'behat') {
-                    node('behat') {
-                      try {
-                        checkout_my()
-                        // checkout scm
-                        // sh 'printenv'
-                        //Run behat installer first time
-                        cache(maxCacheSize: 250, caches: [
-                          [$class: 'ArbitraryFileCache', path: '${HOME}/.cache/composer'],
-                          [$class: 'ArbitraryFileCache', path: '${WORKSPACE}/environment/.composer'],
-                          [$class: 'ArbitraryFileCache', path: '${HOME}/phantomjs/phantomjs-2.1.1-linux-x86_64/bin']
-                          ]) {
-                            timeout(time: 60, unit: 'MINUTES') {
-                              try {
-                                sh '''
-                                printenv
-                                '''
-                              } catch (error) {
-                                echo "ERROR: ${error}"
-                                throw (error)
-                              }
-                              //Recive suits
-                              try {
-                                behatStr = sh (
-                                  script: 'echo "OroCustomerBundle OroSaleBundle"',
-                                  returnStdout: true
-                                ).trim()
-                                // script: './.jenkins/behat_standalone.sh -l ',
-                              } catch (error) {
-                                echo "ERROR: ${error}"
-                                throw (error)
+                    node('master') {
+                      ws("${HOME}/workspace/dev") {
+                        try {
+                          checkout_my()
+                          // checkout scm
+                          // sh 'printenv'
+                          //Run behat installer first time
+                          cache(maxCacheSize: 250, caches: [
+                            [$class: 'ArbitraryFileCache', path: '${HOME}/.cache/composer'],
+                            [$class: 'ArbitraryFileCache', path: '${WORKSPACE}/environment/.composer']
+                            ]) {
+                              timeout(time: 60, unit: 'MINUTES') {
+                                try {
+                                  sh '''
+                                  printenv
+                                  exit 1
+                                  '''
+                                } catch (error) {
+                                  echo "ERROR: ${error}"
+                                  throw (error)
+                                }
+                                //Recive suits
+                                try {
+                                  behatStr = sh (
+                                    script: 'echo suit1 suit2',
+                                    returnStdout: true
+                                  ).trim()
+                                  // script: 'echo "OroCustomerBundle OroSaleBundle"',
+                                } catch (error) {
+                                  echo "ERROR: ${error}"
+                                  throw (error)
+                                }
                               }
                             }
-                          }
-                          // stash name: 'sources'
-                          // dir('/tmp/aufs-tmp_boot')  {
-                          //   stash name: 'tmp_boot'
-                          // }
-                      } catch (error) {
-                        echo "ERROR: ${error}"
-                        throw (error)
-                      } finally {
-                        // archive_all("logs/TestEnv_"+e, '/tmp/aufs-mnt_boot')
-                        // post_clean_node()
-                      }
+                        } catch (error) {
+                          echo "ERROR: ${error}"
+                          throw (error)
+                        } finally {
+                          // archive_all("logs/TestEnv_"+e, '/tmp/aufs-mnt_boot')
+                          // post_clean_node()
+                        }
+                      } //workspace
                     }//node
                     behatList=behatStr.tokenize()
                     echo "SUITES=${behatList}"
@@ -163,37 +165,32 @@ try {
                       int index_b=j, s = j+1
                       enviroments_b["TestEnv_${e} behat=${behatList[index_b]}"] = {
                         withEnv(["BEHAT_SUIT=${behatList[index_b]}"]) {
-                          node('behat') {
-                            // sh ''' printf %s "$(printenv)" |tr -s '[:space:]' ' ' '''
-                            checkout_my()
-                            // deleteDir()
-                            // unstash 'sources'
-                            // post_clean_node()
-                            // sh '''
-                            //   rm -rf /tmp/aufs-tmp_boot && mkdir -p /tmp/aufs-tmp_boot
-                            // '''
-                            // dir('/tmp/aufs-tmp_boot')  {
-                            //   unstash 'tmp_boot'
-                            // }
-                            timeout(time: 60, unit: 'MINUTES') {
-                              cache(maxCacheSize: 250, caches: [
-                                [$class: 'ArbitraryFileCache', path: '${HOME}/.cache/composer'],
-                                [$class: 'ArbitraryFileCache', path: '${WORKSPACE}/environment/.composer'],
-                                [$class: 'ArbitraryFileCache', path: '${HOME}/phantomjs/phantomjs-2.1.1-linux-x86_64/bin']
-                                ]) {
-                                try {
-                                  sh '''
-                                    printenv
-                                  '''
-                                } catch (error) {
-                                  echo "ERROR: ${error}"
-                                  throw (error)
-                                // }finally {
-                                  // archive_all("logs/TestEnv_"+e+"_"+behatList[index_b], '/tmp/aufs-mnt_boot')
-                                  // post_clean_node()
-                                }
-                              } //cache
-                            } //timeout
+                          node('master') {
+                            ws("${HOME}/workspace/dev") {
+                              // sh ''' printf %s "$(printenv)" |tr -s '[:space:]' ' ' '''
+                              checkout_my()
+                              // deleteDir()
+                              // unstash 'sources'
+                              timeout(time: 60, unit: 'MINUTES') {
+                                cache(maxCacheSize: 250, caches: [
+                                  [$class: 'ArbitraryFileCache', path: '${HOME}/.cache/composer'],
+                                  [$class: 'ArbitraryFileCache', path: '${WORKSPACE}/environment/.composer']
+                                  ]) {
+                                  try {
+                                    sh '''
+                                      printenv
+                                      echo ===== run ${BEHAT_SUIT} =====
+                                    '''
+                                  } catch (error) {
+                                    echo "ERROR: ${error}"
+                                    throw (error)
+                                  }finally {
+                                    // archive_all("logs/TestEnv_"+e+"_"+behatList[index_b], '/tmp/aufs-mnt_boot')
+                                    // post_clean_node()
+                                  }
+                                } //cache
+                              } //timeout
+                            } //workspace
                           } //node
                         } //withEnv
                       } //enviroments_b
@@ -204,24 +201,25 @@ try {
                       throw (error)
                     }
                   } else {
-                    node('docker') {
-                      checkout_my()
-                      timeout(time: 60, unit: 'MINUTES') {
-                        cache(maxCacheSize: 250, caches: [
-                          [$class: 'ArbitraryFileCache', path: '${WORKSPACE}/environment/.composer']
-                          ]) {
-                          try {
-                            sh '''
-                              printenv
-                            '''
-                          } catch (error) {
-                            echo "ERROR: ${error}"
-                            throw (error)
-                          // } finally {
-                          //   archive_all("logs/TestEnv_"+e, env.WORKSPACE)
-                          }
-                        } //cache
-                      } //timeout
+                    node('master') {
+                      try {
+                        checkout_my()
+                        timeout(time: 60, unit: 'MINUTES') {
+                          cache(maxCacheSize: 250, caches: [
+                            [$class: 'ArbitraryFileCache', path: '${WORKSPACE}/environment/.composer']
+                            ]) {
+                              sh '''
+                                printenv
+                                echo ===== ${TEST_SUITE} ${APP} =====
+                              '''
+                          } //cache
+                        } //timeout
+                      } catch (error) {
+                        echo "ERROR: ${error}"
+                        throw (error)
+                      } finally {
+                        // archive_all("logs/TestEnv_"+e, env.WORKSPACE)
+                      }
                     } //node
                   } //if behat
                 } //withEnv
@@ -241,35 +239,38 @@ try {
     }
   }
 } catch (error) {
+  println (error)
   try {
-    emailext(body: '${FILE,path="target/failsafe-reports/emailable-report.html"}', mimeType: 'html',
-    recipientProviders: [[$class: 'CulpritsRecipientProvider']],
-    subject: "${env.JOB_NAME} ${env.BRANCH_NAME} - Build #${env.BUILD_NUMBER} - FAILED!")
+    emailext body: "${env.BRANCH_NAME} - Build #${env.BUILD_NUMBER} ${env.JOB_NAME} - FAILED!",
+    recipientProviders: [[$class: 'UpstreamComitterRecipientProvider']],
+    subject: "${env.BRANCH_NAME} - Build #${env.BUILD_NUMBER} ${env.JOB_NAME} - FAILED!"
   } catch (error_m) {
-    echo "Can't send email with error: ${error_m}"
+    echo "Can't send email"
   }
-  error error
+  throw (error)
 }
 
 
 def checkout_my() {
+  //First clone from google for speed up
+  // dir("${HOME}") {
+  //   unstash 'master-stuff'
+  // }
   try {
-    //First clone it
-    dir("${HOME}") {
-      unstash 'master-stuff'
+    retry(5) {
+      // sh '''
+      //   gcloud auth activate-service-account jenkins@oro-product-development.iam.gserviceaccount.com --key-file="${HOME}/jenkins@oro-product-development.iam.gserviceaccount.com.json" ||:
+      //   [ "$(ls -A .)" ] || time gcloud source repos clone dev . ||:
+      // '''
+      checkout scm
+      // checkout([
+      //  $class: 'GitSCM',
+      //  branches: scm.branches,
+      //  doGenerateSubmoduleConfigurations: scm.doGenerateSubmoduleConfigurations,
+      //  extensions: scm.extensions + [[$class: 'CloneOption', depth: Depth,  noTags: true, reference: '', shallow: Shallow]],
+      //  userRemoteConfigs: scm.userRemoteConfigs
+      //  ])
     }
-    sh '''
-      gcloud auth activate-service-account jenkins@oro-product-development.iam.gserviceaccount.com --key-file="${HOME}/jenkins@oro-product-development.iam.gserviceaccount.com.json" ||:
-      [ "$(ls -A .)" ] || time gcloud source repos clone ci-pipeline . ||:
-    '''
-    checkout scm
-    // checkout([
-    //  $class: 'GitSCM',
-    //  branches: scm.branches,
-    //  doGenerateSubmoduleConfigurations: scm.doGenerateSubmoduleConfigurations,
-    //  extensions: scm.extensions + [[$class: 'CloneOption', depth: depth,  noTags: true, reference: '', shallow: shallow]],
-    //  userRemoteConfigs: scm.userRemoteConfigs
-    //  ])
   } catch (error) {
     error message:"ERROR: Cannot perform git checkout!, Reason: '${error}'"
   }
@@ -283,10 +284,10 @@ def archive_all(LogPath='logs', SrcLogs='/tmp/aufs-mnt_boot') {
         rm -rf \'logs\'
         mkdir -p "${LOGPATH}"
         #docker-compose -f ${COMPOSE_FILE} -p ${PROJECT_NAME} logs --no-color --timestamps > ${LOGPATH}/docker.log ||:
-        cp -rfv "${HOME}/phantomjs/"*.log "${LOGPATH}"/ ||:
-        cp -rfv environment/ci/artifacts/* "${LOGPATH}"/ ||:
-        cp -rfv "${APP}/app/logs/"* "${LOGPATH}"/ ||:
-        cp -rfv "${APP}/web/uploads/behat/"*.png "${LOGPATH}"/ ||:
+        mv -fv "${HOME}/phantomjs/"*.log "${LOGPATH}"/ ||:
+        mv -fv environment/ci/artifacts/* "${LOGPATH}"/ ||:
+        mv -fv "${APP}/app/logs/"* "${LOGPATH}"/ ||:
+        mv -fv "${APP}/web/uploads/behat/"*.png "${LOGPATH}"/ ||:
         sudo chmod go+r /var/log/php* ||:
         cp -rfv /var/log/php* "${LOGPATH}"/ ||:
         cp -rfv /var/log/nginx "${LOGPATH}"/ ||:
@@ -295,9 +296,10 @@ def archive_all(LogPath='logs', SrcLogs='/tmp/aufs-mnt_boot') {
     try {
       archiveArtifacts artifacts: 'logs/**'
     } catch (error) {
-      echo "Archiving artifacts error"
+      echo "Archiving artifacts ${error}"
     }
     junit allowEmptyResults: true, testResults: 'logs/**/*.xml'
+    sh ''' rm -rf \'logs\' ||: '''
   }
 }
 
@@ -324,7 +326,7 @@ def killall_jobs() {
   def jobname = env.JOB_NAME
   def buildnum = env.BUILD_NUMBER.toInteger()
 
-    def job = Jenkins.instance.getItemByFullName(jobname)
+  def job = Jenkins.instance.getItemByFullName(jobname)
   for (build in job.builds) {
     if (!build.isBuilding()) { continue; }
     if (buildnum == build.getNumber().toInteger()) { continue; println "equals" }
